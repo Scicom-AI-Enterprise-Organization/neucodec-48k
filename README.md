@@ -28,12 +28,12 @@ Dry run,
 python3 train.py \
 log_dir=48k \
 train.trainer.devices=2 \
-train.trainer.max_steps=100 \
-train.trainer.min_steps=100 \
+train.trainer.max_steps=1000 \
+train.trainer.min_steps=1000 \
 train.trainer.val_check_interval=100 \
-+train.accumulate_grad_batches=8 \
++train.accumulate_grad_batches=4 \
 dataset.train.filelist="train.txt" \
-dataset.train.batch_size=4 \
+dataset.train.batch_size=8 \
 dataset.val.filelist="test.txt"
 ```
 

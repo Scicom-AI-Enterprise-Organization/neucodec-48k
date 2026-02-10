@@ -114,17 +114,17 @@ hydra:
     task:
     - log_dir=48k
     - train.trainer.devices=2
-    - train.trainer.max_steps=100
-    - train.trainer.min_steps=100
+    - train.trainer.max_steps=1000
+    - train.trainer.min_steps=1000
     - train.trainer.val_check_interval=100
-    - +train.accumulate_grad_batches=8
+    - +train.accumulate_grad_batches=4
     - dataset.train.filelist=train.txt
-    - dataset.train.batch_size=4
+    - dataset.train.batch_size=8
     - dataset.val.filelist=test.txt
   job:
     name: train
     chdir: true
-    override_dirname: +train.accumulate_grad_batches=8,dataset.train.batch_size=4,dataset.train.filelist=train.txt,dataset.val.filelist=test.txt,log_dir=48k,train.trainer.devices=2,train.trainer.max_steps=100,train.trainer.min_steps=100,train.trainer.val_check_interval=100
+    override_dirname: +train.accumulate_grad_batches=4,dataset.train.batch_size=8,dataset.train.filelist=train.txt,dataset.val.filelist=test.txt,log_dir=48k,train.trainer.devices=2,train.trainer.max_steps=1000,train.trainer.min_steps=1000,train.trainer.val_check_interval=100
     id: ???
     num: ???
     config_name: default

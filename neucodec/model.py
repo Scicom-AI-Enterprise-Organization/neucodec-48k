@@ -164,6 +164,41 @@ class NeuCodec(
         _, fsq_codes, _ = self.generator(concat_emb, vq=True)
         return fsq_codes
 
+    def encode_code_from_features(self, audio: torch.Tensor, semantic_features: torch.Tensor) -> torch.Tensor:
+        """Encode using pre-computed semantic features, avoiding CPU feature extraction.
+
+        Args:
+            audio: torch.Tensor [B, 1, T], 16kHz input audio
+            semantic_features: torch.Tensor [B, seq_len, feat_dim], pre-computed features
+
+        Returns:
+            fsq_codes: torch.Tensor [B, 1, F], 50hz FSQ codes
+        """
+        y = self._prepare_audio(audio)
+        semantic_features = semantic_features.to(self.device)
+
+        # acoustic encoding
+        acoustic_emb = self.CodecEnc(y.to(self.device))
+        acoustic_emb = acoustic_emb.transpose(1, 2)
+
+        # semantic encoding
+        semantic_output = (
+            self.semantic_model(semantic_features).hidden_states[16].transpose(1, 2)
+        )
+        semantic_encoded = self.SemanticEncoder_module(semantic_output)
+
+        # concatenate embeddings
+        if acoustic_emb.shape[-1] != semantic_encoded.shape[-1]:
+            min_len = min(acoustic_emb.shape[-1], semantic_encoded.shape[-1])
+            acoustic_emb = acoustic_emb[:, :, :min_len]
+            semantic_encoded = semantic_encoded[:, :, :min_len]
+        concat_emb = torch.cat([semantic_encoded, acoustic_emb], dim=1)
+        concat_emb = self.fc_prior(concat_emb.transpose(1, 2)).transpose(1, 2)
+
+        # quantize
+        _, fsq_codes, _ = self.generator(concat_emb, vq=True)
+        return fsq_codes
+
     def decode_code(self, fsq_codes: torch.Tensor) -> torch.Tensor:
         """
         Args:

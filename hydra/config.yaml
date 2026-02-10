@@ -24,7 +24,7 @@ dataset:
     _target_: data_module.FSDataset_add_STFT
   train:
     filelist: train.txt
-    batch_size: 4
+    batch_size: 8
     shuffle: true
   val:
     filelist: test.txt
@@ -136,8 +136,8 @@ train:
     accelerator: gpu
     num_nodes: 1
     devices: 2
-    min_steps: 100
-    max_steps: 100
+    min_steps: 1000
+    max_steps: 1000
     precision: bf16-mixed
     limit_val_batches: 2560
     val_check_interval: 100
@@ -153,17 +153,17 @@ train:
     lambda_perceptual_loss: 0
   use_mel_loss: true
   use_feat_match_loss: true
-  use_stft_loss: false
+  use_stft_loss: true
   stft_loss_params:
     fft_sizes:
-    - 512
-    - 2048
+    - 1024
+    - 4096
     hop_sizes:
-    - 128
-    - 512
+    - 256
+    - 1024
     win_lengths:
-    - 512
-    - 2048
+    - 1024
+    - 4096
     window: hann_window
   gen_optim_params:
     lr: 1.0
@@ -187,7 +187,7 @@ train:
     down_step: 400000
     min_lr: 2.0e-05
     max_lr: 0.0001
-  accumulate_grad_batches: 8
+  accumulate_grad_batches: 4
 save_top_k: 5
 every_n_train_steps: 2500
 log_dir: 48k

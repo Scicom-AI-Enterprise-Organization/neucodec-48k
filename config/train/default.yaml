@@ -21,12 +21,12 @@ lambdas:
   lambda_perceptual_loss: 0
 use_mel_loss: true
 use_feat_match_loss: true
-use_stft_loss: false
+use_stft_loss: true
 
 stft_loss_params:
-  fft_sizes: [512,2048]
-  hop_sizes: [128,512]
-  win_lengths: [512,2048]
+  fft_sizes: [1024,4096]
+  hop_sizes: [256,1024]
+  win_lengths: [1024,4096]
   window: hann_window
 
 # optimizer

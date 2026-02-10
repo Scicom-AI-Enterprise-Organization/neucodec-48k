@@ -1,10 +1,9 @@
 import os
- 
+
 import re
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torchaudio
 import numpy as np
 import pytorch_lightning as pl
 import random
@@ -13,11 +12,8 @@ from os.path import basename, exists, join
 from torch.utils.data import Dataset, DataLoader
 import hydra
 import utils
-import torchaudio
 from transformers import AutoFeatureExtractor
-from torchaudio.transforms import Resample
 from tqdm import tqdm
-from torchaudio.transforms import Resample
 class DataModule(pl.LightningDataModule):
     def __init__(self, cfg):
         super().__init__()
@@ -40,7 +36,7 @@ class DataModule(pl.LightningDataModule):
                         prefetch_factor=prefetch_factor,
                         collate_fn=ds.collate_fn,
                         pin_memory=True,
-                        persistent_workers=num_workers > 0)
+                        persistent_workers=True)
 
         return dl
 
@@ -71,83 +67,86 @@ class FSDataset(Dataset):
         
         self.filelist = self.get_filelist(self.phase_cfg.filelist)
         self.min_audio_length = cfg.dataset.min_audio_length
-        self.feature_extractor = AutoFeatureExtractor.from_pretrained("facebook/w2v-bert-2.0")
+
     def __len__(self):
         return len(self.filelist)
 
-    def load_wav(self, path):
-        wav, sr = librosa.load(path, sr=self.sr)
-        return wav
-
     def get_filelist(self, fpath):
         with open(fpath, 'r') as f:
-            # flist = [l.strip() for l in f if l.strip()]
             flist = [l.strip().split('\t')[0] for l in f if l.strip()]
         return flist
 
     def __getitem__(self, idx):
-        # (  wavpath,fid) = self.filelist[idx]
-
         try:
-            wavpath_full  = self.filelist[idx]
-    
-            original_wav,sr = torchaudio.load(wavpath_full) 
+            wavpath_full = self.filelist[idx]
             min_audio_length_24k = int(self.min_audio_length / 16000 * 48000)
 
+            # Load at native sr using librosa (returns numpy)
+            original_wav, sr = librosa.load(wavpath_full, sr=None, mono=True)
+
+            # Resample to 16kHz for encoder input
             if sr != 16000:
-                wav = Resample(sr, 16000)(original_wav)
+                wav_16k = librosa.resample(original_wav, orig_sr=sr, target_sr=16000)
             else:
-                wav = original_wav
+                wav_16k = original_wav
 
-            wav = wav[0,:]
-            length = wav.shape[0]
-            # length = wav.shape[1]
+            length = len(wav_16k)
             if length < self.min_audio_length:
-                wav = F.pad(wav, (0, self.min_audio_length - length))
-                length = wav.shape[0]
-            i = random.randint(0, length-self.min_audio_length)
-            wav = wav[i:i+self.min_audio_length]
-            wav_pad = F.pad(wav, (160, 160))
-            feat = self.feature_extractor(wav_pad, sampling_rate=16000, return_tensors="pt") .data['input_features']
+                wav_16k = np.pad(wav_16k, (0, self.min_audio_length - length))
+                length = len(wav_16k)
+            i = random.randint(0, length - self.min_audio_length)
+            wav_16k = wav_16k[i:i + self.min_audio_length]
 
+            wav_16k = torch.from_numpy(wav_16k).float()
+
+            # Resample to 48kHz for decoder target
             if sr != 48000:
-                wav_24k = Resample(sr, 48000)(original_wav)
+                wav_48k = librosa.resample(original_wav, orig_sr=sr, target_sr=48000)
             else:
-                wav_24k = original_wav
-            wav_24k = wav_24k[0,:]
-            length = wav_24k.shape[0]
+                wav_48k = original_wav
+
+            length = len(wav_48k)
             if length < min_audio_length_24k:
-                wav_24k = F.pad(wav_24k, (0, min_audio_length_24k - length))
-                length = wav_24k.shape[0]
-            i = random.randint(0, length-min_audio_length_24k)
-            wav_24k = wav_24k[i:i+min_audio_length_24k]
+                wav_48k = np.pad(wav_48k, (0, min_audio_length_24k - length))
+                length = len(wav_48k)
+            i = random.randint(0, length - min_audio_length_24k)
+            wav_48k = wav_48k[i:i + min_audio_length_24k]
+
+            wav_48k = torch.from_numpy(wav_48k).float()
 
             out = {
-                'wav': wav,
-                'feat': feat,
-                'wav_24k': wav_24k,
+                'wav': wav_16k,
+                'wav_24k': wav_48k,
             }
-            
+
             return out
         except Exception as e:
             print(e)
     
     def collate_fn(self, bs):
+        if not hasattr(self, '_feature_extractor'):
+            self._feature_extractor = AutoFeatureExtractor.from_pretrained("facebook/w2v-bert-2.0")
 
         bs = [b for b in bs if b is not None]
- 
+
         wavs = [b['wav'] for b in bs]
         wavs = torch.stack(wavs)
         wavs_24k = [b['wav_24k'] for b in bs]
         wavs_24k = torch.stack(wavs_24k)
-        feats = [b['feat'] for b in bs]
-        feats = torch.stack(feats)
+
+        # Extract features in main process (collate_fn runs in main process)
+        # Process per-sample to match original shape: each returns (1, C, T), stack to (B, 1, C, T)
+        feat_list = []
+        for w in wavs:
+            wav_pad = F.pad(w, (160, 160))
+            feat = self._feature_extractor(wav_pad, sampling_rate=16000, return_tensors="pt").data['input_features']
+            feat_list.append(feat)
+        feats = torch.stack(feat_list)
+
         out = {
- 
             'wav': wavs,
-            'wav_24k': wavs_24k,  
+            'wav_24k': wavs_24k,
             'feats': feats,
-            # 'paths': [b['paths'] for b in bs]
         }
         return out
 

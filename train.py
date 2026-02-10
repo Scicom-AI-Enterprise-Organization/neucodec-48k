@@ -87,7 +87,10 @@ class CodecLightningModule(pl.LightningModule):
         cfg = self.cfg.train
         self.criteria = nn.ModuleDict()
         if cfg.use_mel_loss:
-            self.criteria['mel_loss'] = MultiResolutionMelSpectrogramLoss(sample_rate=self.cfg.preprocess.audio.sr)
+            self.criteria['mel_loss'] = MultiResolutionMelSpectrogramLoss(
+                sample_rate=48000,
+                window_lengths=[64, 128, 256, 512, 1024, 2048, 4096],
+            )
         if cfg.use_stft_loss:
             self.criteria['stft_loss'] = MultiResolutionSTFTLoss(
                 fft_sizes=cfg.stft_loss_params.fft_sizes,
@@ -104,16 +107,15 @@ class CodecLightningModule(pl.LightningModule):
     def forward(self, batch):
         wav = batch['wav']  # 16kHz input
         wav_24k = batch['wav_24k']  # 48kHz ground truth
+        feats = batch['feats'].squeeze(1)  # pre-computed semantic features from dataloader
 
         # Encode to FSQ codes (frozen encoder, no gradients needed)
         with torch.no_grad():
-            fsq_codes = self.model.encode_code(wav.unsqueeze(1))  # (B, 1, T) -> codes
+            fsq_codes = self.model.encode_code_from_features(wav.unsqueeze(1), feats)
 
-        # Decode back to audio (decoder requires gradients for finetuning)
+        # Decode back to audio (generator requires gradients for finetuning)
         y_ = self.model.decode_code(fsq_codes)  # (B, 1, T_out)
         y = wav_24k.unsqueeze(1)  # Ground truth with channel dimension
-
-        print('y', y_.shape, y.shape)
 
         # Match dimensions if needed
         min_length = min(y_.shape[2], y.shape[2])
