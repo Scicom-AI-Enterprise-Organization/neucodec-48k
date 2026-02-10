@@ -192,3 +192,4 @@ parlimen-24k-chunk_processed_sidon
 *Untitled*.ipynb
 train.txt
 test.txt
+*.ckpt
