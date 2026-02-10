@@ -37,3 +37,4 @@ dataset.train.batch_size=8 \
 dataset.val.filelist="test.txt"
 ```
 
+Check WanDB at https://wandb.ai/huseinzol05/wandb_project
