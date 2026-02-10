@@ -1,6 +1,6 @@
 # NeuCodec 48k
 
-Scaling NeuCodec to 48k and reduce from 50TPS to 25TPS.
+Scaling NeuCodec to 48k.
 
 ## Training
 
