@@ -1,0 +1,2 @@
+/path/audio1.wav
+/path/audio2.wav

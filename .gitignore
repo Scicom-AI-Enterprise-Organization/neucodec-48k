@@ -187,3 +187,8 @@ evals/
 *.safetensors
 *.pt
 .ruff_cache
+
+parlimen-24k-chunk_processed_sidon
+*Untitled*.ipynb
+train.txt
+test.txt

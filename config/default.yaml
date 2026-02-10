@@ -1,0 +1,20 @@
+defaults:
+  - preprocess: default
+  - dataset: default
+  - model: default
+  - train: default
+save_top_k: 5
+every_n_train_steps: 2500
+log_dir: /aifs4su/data/zheny/bigcodec_final/logs_1020/v10_31
+wandb_name: wandb_name
+wandb_project: wandb_project
+debug: false
+ckpt: null # infer
+input_dir: null # infer
+output_dir: null # infer
+hydra:
+  output_subdir: hydra
+  job:
+    chdir: True
+  run:
+    dir: .
