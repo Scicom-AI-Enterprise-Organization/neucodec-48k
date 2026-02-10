@@ -22,17 +22,18 @@ A simple file with list of files, example, [example.txt](example.txt),
 
 3. Run finetune,
 
+Dry run,
+
 ```bash
 python3 train.py \
 log_dir=48k \
-train.trainer.devices=1 \
+train.trainer.devices=2 \
+train.trainer.max_steps=100 \
+train.trainer.min_steps=100 \
+train.trainer.val_check_interval=100 \
++train.accumulate_grad_batches=8 \
 dataset.train.filelist="train.txt" \
-dataset.train.batch_size=20 \
+dataset.train.batch_size=4 \
 dataset.val.filelist="test.txt"
-```
-
-Or dry run,
-
-```bash
 ```
 

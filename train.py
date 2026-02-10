@@ -163,7 +163,6 @@ class CodecLightningModule(pl.LightningModule):
     def compute_gen_loss(self, batch, output):
         y, y_ = output['gt_wav'], output['gen_wav']
         gen_loss = 0.0
-        self.set_discriminator_gradients(False)
         output_dict = {}
         cfg = self.cfg.train
 
@@ -206,7 +205,6 @@ class CodecLightningModule(pl.LightningModule):
                 gen_loss += spec_fm_loss * cfg.lambdas.lambda_feat_match_loss
                 output_dict['spec_fm_loss'] = spec_fm_loss
 
-        self.set_discriminator_gradients(True)
         output_dict['gen_loss'] = gen_loss
         return output_dict
 
@@ -222,31 +220,25 @@ class CodecLightningModule(pl.LightningModule):
         # Determine if this is an accumulation step
         is_accumulating = (batch_idx + 1) % accumulate_grad_batches != 0
 
-        # Initialize loss accumulators at start of accumulation window
+        # Zero grads and reset loss accumulators at start of accumulation window
         if batch_idx % accumulate_grad_batches == 0:
+            disc_opt.zero_grad()
+            gen_opt.zero_grad()
             self._acc_disc_losses = {}
             self._acc_gen_losses = {}
 
         # Train discriminator
+        self.set_discriminator_gradients(True)
         disc_losses = self.compute_disc_loss(batch, output)
         disc_loss = disc_losses['disc_loss'] / accumulate_grad_batches
         self.manual_backward(disc_loss)
+        self.set_discriminator_gradients(False)
 
         # Accumulate disc losses for logging
         for k, v in disc_losses.items():
             if k not in self._acc_disc_losses:
                 self._acc_disc_losses[k] = 0.0
             self._acc_disc_losses[k] += v.detach() / accumulate_grad_batches
-
-        if not is_accumulating:
-            self.clip_gradients(
-                disc_opt,
-                gradient_clip_val=self.cfg.train.disc_grad_clip,
-                gradient_clip_algorithm='norm'
-            )
-            disc_opt.step()
-            disc_opt.zero_grad()
-            disc_sche.step()
 
         # Train generator
         gen_losses = self.compute_gen_loss(batch, output)
@@ -260,13 +252,21 @@ class CodecLightningModule(pl.LightningModule):
             self._acc_gen_losses[k] += v.detach() / accumulate_grad_batches
 
         if not is_accumulating:
+            self.set_discriminator_gradients(True)
+            self.clip_gradients(
+                disc_opt,
+                gradient_clip_val=self.cfg.train.disc_grad_clip,
+                gradient_clip_algorithm='norm'
+            )
+            disc_opt.step()
+            disc_sche.step()
+
             self.clip_gradients(
                 gen_opt,
                 gradient_clip_val=self.cfg.train.gen_grad_clip,
                 gradient_clip_algorithm='norm'
             )
             gen_opt.step()
-            gen_opt.zero_grad()
             gen_sche.step()
 
             # Log accumulated losses

@@ -4,7 +4,7 @@ trainer:
   devices: 8
   min_steps: 3000000
   max_steps: 3000000
-  precision: 16-mixed
+  precision: bf16-mixed
   limit_val_batches: 2560
   val_check_interval: 4000
   num_sanity_val_steps: 0

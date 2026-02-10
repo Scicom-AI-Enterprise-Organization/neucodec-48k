@@ -31,14 +31,16 @@ class DataModule(pl.LightningDataModule):
         batch_size = phase_cfg.batch_size
         ds = FSDataset(phase, self.cfg)
         # ds = FSDataset_add_STFT(phase, self.cfg)
-        dl = DataLoader(ds, 
+        num_workers = self.cfg.dataset.get('num_workers', 5)
+        prefetch_factor = self.cfg.dataset.get('prefetch_factor', 5)
+        dl = DataLoader(ds,
                         batch_size=batch_size,
                         shuffle=phase_cfg.shuffle,
-                        num_workers=5,
-                        prefetch_factor=5,
+                        num_workers=num_workers,
+                        prefetch_factor=prefetch_factor,
                         collate_fn=ds.collate_fn,
                         pin_memory=True,
-                        persistent_workers=False)
+                        persistent_workers=num_workers > 0)
 
         return dl
 

@@ -18,3 +18,5 @@ test:
 padding_idx: 0
 frame_length: 200
 min_audio_length: 96000
+num_workers: 5
+prefetch_factor: 5

@@ -37,6 +37,8 @@ dataset:
   padding_idx: 0
   frame_length: 200
   min_audio_length: 96000
+  num_workers: 5
+  prefetch_factor: 5
 model:
   codec_encoder:
     ngf: 48
@@ -133,10 +135,10 @@ train:
   trainer:
     accelerator: gpu
     num_nodes: 1
-    devices: 1
+    devices: 2
     min_steps: 100
     max_steps: 100
-    precision: 16-mixed
+    precision: bf16-mixed
     limit_val_batches: 2560
     val_check_interval: 100
     num_sanity_val_steps: 0
@@ -185,7 +187,7 @@ train:
     down_step: 400000
     min_lr: 2.0e-05
     max_lr: 0.0001
-  accumulate_grad_batches: 5
+  accumulate_grad_batches: 8
 save_top_k: 5
 every_n_train_steps: 2500
 log_dir: 48k
