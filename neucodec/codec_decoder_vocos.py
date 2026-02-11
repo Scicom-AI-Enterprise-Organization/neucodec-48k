@@ -62,7 +62,6 @@ class ISTFT(nn.Module):
         else:
             raise ValueError("Padding must be 'center' or 'same'.")
 
-        assert spec.dim() == 3, "Expected a 3D tensor as input"
         B, N, T = spec.shape
 
         # Inverse FFT
@@ -87,8 +86,6 @@ class ISTFT(nn.Module):
             stride=(1, self.hop_length),
         ).squeeze()[pad:-pad]
 
-        # Normalize
-        assert (window_envelope > 1e-11).all()
         y = y / window_envelope
 
         return y

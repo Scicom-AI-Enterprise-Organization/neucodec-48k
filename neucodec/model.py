@@ -19,25 +19,41 @@ class NeuCodec(
     nn.Module,
     PyTorchModelHubMixin,
     repo_url="https://github.com/neuphonic/neucodec",
+
     license="apache-2.0",
 ):
 
-    def __init__(self, sample_rate: int, hop_length: int):
+    def __init__(self, sample_rate: int, hop_length: int, use_fp16: bool = True):
         super().__init__()
         self.sample_rate = sample_rate
         self.hop_length = hop_length
+        self.use_fp16 = use_fp16
+
         self.semantic_model = Wav2Vec2BertModel.from_pretrained(
-            "facebook/w2v-bert-2.0", output_hidden_states=True
+            "facebook/w2v-bert-2.0",
+            output_hidden_states=True,
         )
+
         self.feature_extractor = AutoFeatureExtractor.from_pretrained(
             "facebook/w2v-bert-2.0"
         )
+
         self.SemanticEncoder_module = SemanticEncoder(1024, 1024, 1024)
         self.CodecEnc = CodecEncoder()
+        # Generator must stay in float32 for ISTFT operations
         self.generator = CodecDecoderVocos(hop_length=hop_length)
         self.fc_prior = nn.Linear(2048, 2048)
         self.fc_post_a = nn.Linear(2048, 1024)
 
+        if self.use_fp16:
+            self._convert_to_fp16()
+
+    def _convert_to_fp16(self):
+        for name, module in self.named_children():
+            if name not in ["generator"]:
+                module.half()
+        self.generator.float()
+        
     @property
     def device(self):
         return next(self.parameters()).device
@@ -142,7 +158,8 @@ class NeuCodec(
         """
          
         # prepare inputs
-        y = self._prepare_audio(audio_or_path)
+        with torch.cuda.amp.autocast(enabled=self.use_fp16, dtype=torch.float16):
+            y = self._prepare_audio(audio_or_path)
         semantic_features = self.feature_extractor(
             y.squeeze(0), sampling_rate=16_000, return_tensors="pt"
         ).input_features.to(self.device)
@@ -178,9 +195,18 @@ class NeuCodec(
             recon: torch.Tensor [B, 1, T], reconstructed 24kHz audio
         """
 
-        fsq_post_emb = self.generator.quantizer.get_output_from_indices(fsq_codes.transpose(1, 2))
+        # Quantizer runs in float32 with the generator; align dtype before and after
+        fsq_post_emb = self.generator.quantizer.get_output_from_indices(
+            fsq_codes.transpose(1, 2)
+        )
         fsq_post_emb = fsq_post_emb.transpose(1, 2)
-        fsq_post_emb = self.fc_post_a(fsq_post_emb.transpose(1, 2)).transpose(1, 2) 
+
+        # fc_post_a may be in fp16 when use_fp16=True; cast input to its dtype
+        fsq_post_emb = fsq_post_emb.transpose(1, 2).to(self.fc_post_a.weight.dtype)
+        fsq_post_emb = self.fc_post_a(fsq_post_emb).transpose(1, 2)
+
+        # Generator (ISTFT) must stay float32
+        fsq_post_emb = fsq_post_emb.to(torch.float32)
         recon = self.generator(fsq_post_emb.transpose(1, 2), vq=False)[0]
         return recon
     
@@ -350,3 +376,9 @@ class NeuCodecOnnxDecoder(
         )[0].astype(np.float32)
         
         return recon
+
+
+
+
+
+
