@@ -193,3 +193,7 @@ parlimen-24k-chunk_processed_sidon
 train.txt
 test.txt
 *.ckpt
+commonvoice22_sidon
+*_sidon
+real_test.txt
+real_train.txt

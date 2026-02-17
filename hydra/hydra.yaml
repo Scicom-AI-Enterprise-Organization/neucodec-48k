@@ -113,18 +113,21 @@ hydra:
     - hydra.mode=RUN
     task:
     - log_dir=48k
+    - wandb_name=48k
+    - wandb_project=neucodec_48k
+    - every_n_train_steps=10000
     - train.trainer.devices=2
-    - train.trainer.max_steps=1000
-    - train.trainer.min_steps=1000
-    - train.trainer.val_check_interval=100
-    - +train.accumulate_grad_batches=4
-    - dataset.train.filelist=train.txt
+    - train.trainer.max_steps=1000000
+    - train.trainer.min_steps=1000000
+    - train.trainer.val_check_interval=10000
+    - +train.accumulate_grad_batches=8
+    - dataset.train.filelist=real_train.txt
     - dataset.train.batch_size=8
-    - dataset.val.filelist=test.txt
+    - dataset.val.filelist=real_test.txt
   job:
     name: train
     chdir: true
-    override_dirname: +train.accumulate_grad_batches=4,dataset.train.batch_size=8,dataset.train.filelist=train.txt,dataset.val.filelist=test.txt,log_dir=48k,train.trainer.devices=2,train.trainer.max_steps=1000,train.trainer.min_steps=1000,train.trainer.val_check_interval=100
+    override_dirname: +train.accumulate_grad_batches=8,dataset.train.batch_size=8,dataset.train.filelist=real_train.txt,dataset.val.filelist=real_test.txt,every_n_train_steps=10000,log_dir=48k,train.trainer.devices=2,train.trainer.max_steps=1000000,train.trainer.min_steps=1000000,train.trainer.val_check_interval=10000,wandb_name=48k,wandb_project=neucodec_48k
     id: ???
     num: ???
     config_name: default

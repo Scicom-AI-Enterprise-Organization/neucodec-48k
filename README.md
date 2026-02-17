@@ -38,3 +38,21 @@ dataset.val.filelist="test.txt"
 ```
 
 Check WanDB at https://wandb.ai/huseinzol05/wandb_project
+
+Actual training,
+
+```bash
+python3 train.py \
+log_dir=48k \
+wandb_name=48k \
+wandb_project=neucodec_48k \
+every_n_train_steps=10000 \
+train.trainer.devices=2 \
+train.trainer.max_steps=1000000 \
+train.trainer.min_steps=1000000 \
+train.trainer.val_check_interval=10000 \
++train.accumulate_grad_batches=8 \
+dataset.train.filelist="real_train.txt" \
+dataset.train.batch_size=8 \
+dataset.val.filelist="real_test.txt"
+```
